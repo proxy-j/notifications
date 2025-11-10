@@ -12,11 +12,16 @@ const PORT = process.env.PORT || 3000;
 // Store connected users
 const users = new Map();
 
-// Serve static files
-app.use(express.static(path.join(__dirname)));
+// Serve static files from current directory
+app.use(express.static(__dirname));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Health check endpoint for Render
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
 });
 
 io.on('connection', (socket) => {
