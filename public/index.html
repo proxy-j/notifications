@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Web Notification Messenger</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      opacity: 0.9;
+      font-size: 14px;
+    }
+
+    .content {
+      padding: 30px;
+    }
+
+    .register-section, .messenger-section {
+      display: none;
+    }
+
+    .register-section.active, .messenger-section.active {
+      display: block;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #333;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: border-color 0.3s;
+    }
+
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .logout-btn {
+      background: #dc3545;
+      padding: 10px 20px;
+      width: auto;
+      font-size: 14px;
+      float: right;
+    }
+
+    .user-info {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .user-list {
+      background: #e8f4f8;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .user-list h3 {
+      margin-bottom: 10px;
+      color: #333;
+    }
+
+    .user-tag {
+      display: inline-block;
+      background: #667eea;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 20px;
+      margin: 4px;
+      font-size: 14px;
+    }
+
+    .message-history {
+      margin-top: 30px;
+    }
+
+    .message-history h3 {
+      margin-bottom: 15px;
+      color: #333;
+    }
+
+    .message-item {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      border-left: 4px solid #667eea;
+    }
+
+    .message-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .message-from {
+      font-weight: 600;
+      color: #667eea;
+    }
+
+    .message-time {
+      color: #999;
+    }
+
+    .message-text {
+      color: #333;
+    }
+
+    .error-message {
+      background: #ffebee;
+      color: #c62828;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      display: none;
+    }
+
+    .error-message.show {
+      display: block;
+    }
+
+    .status {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #4caf50;
+      margin-right: 8px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .section-title {
+      font-size: 20px;
+      margin-bottom: 15px;
+      color: #333;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="header">
+        <h1>🔔 Web Notification Messenger</h1>
+        <p>Send real-time messages with browser notifications</p>
+      </div>
+      
+      <div class="content">
+        <!-- Registration Section -->
+        <div class="register-section active" id="registerSection">
+          <div class="section-title">Register Your Name</div>
+          <div class="form-group">
+            <label for="usernameInput">Your Name</label>
+            <input type="text" id="usernameInput" placeholder="Enter your name" />
+          </div>
+          <button onclick="register()">Register & Enable Notifications</button>
+        </div>
+
+        <!-- Messenger Section -->
+        <div class="messenger-section" id="messengerSection">
+          <div class="user-info">
+            <div>
+              <span class="status"></span>
+              <strong>Logged in as: <span id="currentUsername"></span></strong>
+            </div>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+          </div>
+
+          <div class="user-list">
+            <h3>Online Users</h3>
+            <div id="userListContainer">
+              <span class="user-tag">Loading...</span>
+            </div>
+          </div>
+
+          <div class="section-title">Send a Message</div>
+          <div class="error-message" id="errorMessage"></div>
+          
+          <div class="form-group">
+            <label for="recipientInput">Recipient Name</label>
+            <input type="text" id="recipientInput" placeholder="Enter recipient's name" />
+          </div>
+
+          <div class="form-group">
+            <label for="messageInput">Message</label>
+            <textarea id="messageInput" placeholder="Type your message..."></textarea>
+          </div>
+
+          <button onclick="sendMessage()">Send Message</button>
+
+          <div class="message-history">
+            <h3>Message History</h3>
+            <div id="messageHistoryContainer">
+              <p style="color: #999; text-align: center;">No messages yet</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let socket;
+    let currentUser = '';
+
+    function connect() {
+      socket = io();
+
+      socket.on('connect', () => {
+        console.log('Connected to server');
+      });
+
+      socket.on('userList', (users) => {
+        updateUserList(users);
+      });
+
+      socket.on('receiveMessage', (data) => {
+        addMessageToHistory(data);
+        showNotification(data);
+      });
+
+      socket.on('messageSent', (data) => {
+        addMessageToHistory(data);
+      });
+
+      socket.on('error', (message) => {
+        showError(message);
+      });
+    }
+
+    async function register() {
+      const username = document.getElementById('usernameInput').value.trim();
+      
+      if (!username) {
+        alert('Please enter a name');
+        return;
+      }
+
+      // Request notification permission
+      if ('Notification' in window) {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          alert('Notification permission is required to receive messages');
+          return;
+        }
+      }
+
+      currentUser = username;
+      document.getElementById('currentUsername').textContent = username;
+      
+      connect();
+      socket.emit('register', username);
+
+      document.getElementById('registerSection').classList.remove('active');
+      document.getElementById('messengerSection').classList.add('active');
+    }
+
+    function logout() {
+      if (socket) {
+        socket.disconnect();
+      }
+      currentUser = '';
+      document.getElementById('usernameInput').value = '';
+      document.getElementById('recipientInput').value = '';
+      document.getElementById('messageInput').value = '';
+      document.getElementById('messageHistoryContainer').innerHTML = '<p style="color: #999; text-align: center;">No messages yet</p>';
+      
+      document.getElementById('messengerSection').classList.remove('active');
+      document.getElementById('registerSection').classList.add('active');
+    }
+
+    function sendMessage() {
+      const recipient = document.getElementById('recipientInput').value.trim();
+      const message = document.getElementById('messageInput').value.trim();
+
+      if (!recipient || !message) {
+        showError('Please enter both recipient name and message');
+        return;
+      }
+
+      socket.emit('sendMessage', {
+        from: currentUser,
+        to: recipient,
+        message: message
+      });
+
+      document.getElementById('recipientInput').value = '';
+      document.getElementById('messageInput').value = '';
+    }
+
+    function updateUserList(users) {
+      const container = document.getElementById('userListContainer');
+      if (users.length === 0) {
+        container.innerHTML = '<span class="user-tag">No users online</span>';
+      } else {
+        container.innerHTML = users.map(user => 
+          `<span class="user-tag">${user}</span>`
+        ).join('');
+      }
+    }
+
+    function addMessageToHistory(data) {
+      const container = document.getElementById('messageHistoryContainer');
+      
+      if (container.querySelector('p')) {
+        container.innerHTML = '';
+      }
+
+      const messageEl = document.createElement('div');
+      messageEl.className = 'message-item';
+      messageEl.innerHTML = `
+        <div class="message-header">
+          <span class="message-from">${data.from} → ${data.to}</span>
+          <span class="message-time">${data.timestamp}</span>
+        </div>
+        <div class="message-text">${data.message}</div>
+      `;
+      
+      container.insertBefore(messageEl, container.firstChild);
+    }
+
+    function showNotification(data) {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(`Message from ${data.from}`, {
+          body: data.message,
+          icon: '🔔',
+          tag: 'message-notification'
+        });
+      }
+    }
+
+    function showError(message) {
+      const errorEl = document.getElementById('errorMessage');
+      errorEl.textContent = message;
+      errorEl.classList.add('show');
+      
+      setTimeout(() => {
+        errorEl.classList.remove('show');
+      }, 3000);
+    }
+
+    // Handle Enter key for inputs
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('usernameInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') register();
+      });
+      
+      document.getElementById('messageInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+    });
+  </script>
+</body>
+</html>
